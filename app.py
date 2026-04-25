@@ -79,26 +79,24 @@ st.markdown("""
         font-size: 38px;
         font-weight: 700;
         text-align: center;
-        margin: 30px 0;
+        margin: 20px 0 30px 0;
         color: #1a1a1a;
     }
     
-    /* Weisse Auswahl-Buttons */
-    .choice-btn-container .stButton > button {
+    /* Weisse Auswahl-Buttons direkt unter dem Wort */
+    .stButton > button {
         width: 100% !important;
-        max-width: 450px;
-        margin: 8px auto !important;
-        display: block;
         background-color: white !important;
         color: black !important;
         border-radius: 10px;
         border: 1px solid #ccc !important;
         font-size: 18px;
         padding: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+        transition: all 0.2s;
     }
     
-    .choice-btn-container .stButton > button:hover {
+    .stButton > button:hover {
         border: 1px solid black !important;
         background-color: #f9f9f9 !important;
     }
@@ -139,7 +137,6 @@ def load_new_quiz_data():
     if q:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        # Hole 4 zufällige andere Wörter
         cursor.execute("SELECT target FROM vocab WHERE target != ? ORDER BY RANDOM() LIMIT 4", (q[2],))
         others = [row[0] for row in cursor.fetchall()]
         opts = others + [q[2]]
@@ -169,6 +166,7 @@ else:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
+            
             if st.session_state.feedback:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
@@ -195,20 +193,20 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            # Container für die weissen Buttons
-            st.markdown('<div class="choice-btn-container">', unsafe_allow_html=True)
-            for opt in st.session_state.options:
-                if st.button(opt, key=f"sel_{opt}"):
-                    is_corr = (opt == q[2])
-                    new_lvl = q[3] + 1 if is_corr else 1
-                    conn = sqlite3.connect(DB_PATH)
-                    conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
-                    conn.commit()
-                    conn.close()
-                    st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
-                    load_new_quiz_data()
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Zentrierung der Buttons direkt unter dem Wort
+            c1, c2, c3 = st.columns([1, 1, 1])
+            with c2:
+                for opt in st.session_state.options:
+                    if st.button(opt, key=f"sel_{opt}"):
+                        is_corr = (opt == q[2])
+                        new_lvl = q[3] + 1 if is_corr else 1
+                        conn = sqlite3.connect(DB_PATH)
+                        conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
+                        conn.commit()
+                        conn.close()
+                        st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
+                        load_new_quiz_data()
+                        st.rerun()
 
     # --- DATENBANK ---
     with t_datenbank:
