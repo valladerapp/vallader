@@ -21,7 +21,7 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# CSS für das finale Design
+# CSS für das symmetrische Design
 st.markdown("""
     <style>
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
@@ -58,7 +58,9 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         font-size: 18px;
         font-weight: 600;
-        padding: 12px 40px !important;
+        padding: 12px 0 !important;
+        width: 160px; /* Feste Breite für die oberen Tabs */
+        justify-content: center;
         border-radius: 12px !important;
         border: 1px solid transparent !important;
         color: #1a1a1a !important;
@@ -83,16 +85,18 @@ st.markdown("""
         color: #1a1a1a;
     }
     
-    /* Weisse Auswahl-Buttons direkt unter dem Wort */
+    /* Einheitliche Breite für Auswahl-Buttons (entspricht ca. 3 Tabs + Gaps) */
     .stButton > button {
         width: 100% !important;
+        max-width: 520px; /* Exakt abgestimmt auf die Menübreite */
+        margin: 0 auto 10px auto !important;
+        display: block;
         background-color: white !important;
         color: black !important;
         border-radius: 10px;
         border: 1px solid #ccc !important;
         font-size: 18px;
         padding: 12px;
-        margin-bottom: 10px;
         transition: all 0.2s;
     }
     
@@ -101,8 +105,9 @@ st.markdown("""
         background-color: #f9f9f9 !important;
     }
 
+    /* Input Feld zentrieren & gleiche Breite */
     div[data-testid="stTextInput"] {
-        max-width: 450px;
+        max-width: 520px;
         margin: 0 auto;
     }
     </style>
@@ -171,7 +176,7 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Schreiben & Enter...").strip()
+            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen & Enter...").strip()
             if user_ans:
                 is_corr = user_ans.lower() == q[2].lower().strip()
                 new_lvl = q[3] + 1 if is_corr else 1
@@ -193,8 +198,8 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            # Zentrierung der Buttons direkt unter dem Wort
-            c1, c2, c3 = st.columns([1, 1, 1])
+            # Buttons zentriert untereinander mit fester Breite
+            c1, c2, c3 = st.columns([0.5, 1, 0.5]) # Sorgt für die mittige Platzierung der Button-Spalte
             with c2:
                 for opt in st.session_state.options:
                     if st.button(opt, key=f"sel_{opt}"):
