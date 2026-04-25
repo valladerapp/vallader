@@ -21,7 +21,7 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# CSS für exakte Zentrierung, identische Breiten und zentrierten Text
+# CSS für exakte Zentrierung und identische Breiten
 st.markdown("""
     <style>
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
@@ -84,47 +84,35 @@ st.markdown("""
         color: #1a1a1a;
     }
     
-    /* DIE FIXES: Buttons & Input exakt gleich breit (450px) */
-    /* Wir zentrieren den Container und erzwingen die Breite */
-    .centered-container {
-        max-width: 450px;
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-
-    /* Input Feld Styling */
-    div[data-testid="stTextInput"] {
+    /* ZENTRIERUNG DER BUTTONS & INPUT */
+    /* Wir zwingen alle Buttons im Quiz-Bereich in die Mitte */
+    div.stButton > button, div[data-testid="stTextInput"] {
         width: 450px !important;
         margin: 0 auto !important;
+        display: block !important;
     }
 
-    /* Button Styling */
-    .stButton > button {
-        width: 450px !important; /* Exakt wie Input */
+    /* Styling für die Auswahl-Buttons */
+    div.stButton > button {
         background-color: white !important;
         color: black !important;
         border-radius: 10px;
         border: 1px solid #ccc !important;
         font-size: 18px;
         padding: 12px;
-        margin: 5px auto !important;
-        display: flex !important;
-        justify-content: center !important; /* Text horizontal zentrieren */
-        align-items: center !important;
+        margin-bottom: 10px !important;
         text-align: center !important;
     }
     
-    .stButton > button:hover {
+    div.stButton > button:hover {
         border: 1px solid black !important;
         background-color: #f9f9f9 !important;
     }
-    
-    /* Verstecke Label für Auswahl Buttons falls nötig */
-    .stButton p {
-        margin: 0 !important;
+
+    /* Spezifische Text-Zentrierung innerhalb der Buttons */
+    div.stButton p {
         text-align: center !important;
+        margin: 0 auto !important;
         width: 100%;
     }
     </style>
@@ -192,19 +180,20 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen & Enter...")
-            
-            # Logik beim Absenden (Streamlit erkennt Enter automatisch bei text_input)
-            if st.session_state.input_schreiben:
-                user_ans = st.session_state.input_schreiben.strip()
-                is_corr = user_ans.lower() == q[2].lower().strip()
-                conn = sqlite3.connect(DB_PATH)
-                conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, q[3]+1 if is_corr else 1), q[0]))
-                conn.commit()
-                conn.close()
-                st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}") if is_corr else ("error", f"Falsch! ❌ Richtig: {q[2]}")
-                load_new_quiz_data()
-                st.rerun()
+            # Wichtig: Form benutzen für Enter-Logik
+            with st.form("write_form", clear_on_submit=True):
+                user_ans = st.text_input("Antwort", label_visibility="collapsed", placeholder="Tippen & Enter...")
+                submit = st.form_submit_button("Prüfen", use_container_width=True)
+                
+                if submit and user_ans:
+                    is_corr = user_ans.strip().lower() == q[2].strip().lower()
+                    conn = sqlite3.connect(DB_PATH)
+                    conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, q[3]+1 if is_corr else 1), q[0]))
+                    conn.commit()
+                    conn.close()
+                    st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}") if is_corr else ("error", f"Falsch! ❌ Richtig: {q[2]}")
+                    load_new_quiz_data()
+                    st.rerun()
 
     # --- AUSWAHL ---
     with t_auswahl:
@@ -215,7 +204,7 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            # Buttons untereinander rendern
+            # Buttons untereinander (CSS sorgt für Breite und Zentrierung)
             for opt in st.session_state.options:
                 if st.button(opt, key=f"sel_{opt}"):
                     is_corr = (opt == q[2])
