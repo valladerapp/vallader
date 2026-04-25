@@ -21,14 +21,9 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# CSS für das finale Design
+# CSS für das zentrierte Design ohne Radio-Buttons
 st.markdown("""
     <style>
-    /* Grundfarben überschreiben (entfernt Orange) */
-    :root {
-        --primary-color: #8A2BE2; /* Dunkleres Violett */
-    }
-
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
     
     /* Riesiger Full-Width Violett Header */
@@ -40,70 +35,69 @@ st.markdown("""
         right: 50%;
         margin-left: -50vw;
         margin-right: -50vw;
-        padding: 60px 0; /* Doppelt so hoch */
+        padding: 60px 0;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         text-align: center;
         margin-top: -60px;
-        margin-bottom: 80px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 50px;
     }
     .full-header h1 { color: black; margin: 0; font-weight: 700; font-size: 55px; line-height: 1.0; }
     .subtitle { color: rgba(0,0,0,0.5); font-size: 11px; margin-top: 10px; }
     
-    /* Navigation Tabs Styling */
+    /* Navigation Tabs Styling - Alle zentriert */
     .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center; 
-        gap: 25px;
+        gap: 20px;
         border-bottom: none !important;
     }
     
-    /* Entfernt den orangenen/grauen Strich unter dem aktiven Tab komplett */
-    .stTabs [data-baseweb="tab-border"], 
-    .stTabs [data-baseweb="tab-highlight"],
-    .stTabs [role="tablist"]::after {
-        display: none !important;
-        background-color: transparent !important;
-    }
-
+    /* Alle Tabs in Hellgrau */
     .stTabs [data-baseweb="tab"] {
         font-size: 18px;
         font-weight: 600;
-        padding: 12px 45px !important;
+        padding: 12px 40px !important;
         border-radius: 12px !important;
         border: 1px solid transparent !important;
         color: #1a1a1a !important;
-        background-color: #87CEEB !important; /* Hellblau Standard */
+        background-color: #f0f2f6 !important; /* Hellgrau für alle */
     }
 
-    /* Datenbank Button rechts & grau */
-    .stTabs [data-baseweb="tab"]:nth-child(3) {
-        background-color: #f0f2f6 !important;
-        margin-left: auto;
-    }
-
-    /* AKTIVER BUTTON: Schwarzer Rahmen, KEIN Strich */
+    /* AKTIVER TAB: Schwarzer Rahmen */
     .stTabs [aria-selected="true"] {
         border: 1px solid black !important;
-        background-color: #87CEEB !important;
     }
-    
-    /* Spezielle Farbe für Radio-Buttons (Violett statt Orange) */
-    div[data-idx="0"] > label > div:first-child > div {
-        background-color: #8A2BE2 !important;
+
+    /* Entfernt Linien unter Tabs */
+    .stTabs [data-baseweb="tab-border"], 
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none !important;
     }
 
     .quiz-word {
         font-size: 38px;
         font-weight: 700;
         text-align: center;
-        margin: 40px 0;
+        margin: 30px 0;
         color: #1a1a1a;
     }
     
+    /* Auswahl-Buttons untereinander */
+    .stButton > button {
+        width: 100% !important;
+        max-width: 450px;
+        margin: 5px auto;
+        display: block;
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-size: 18px;
+        padding: 10px;
+    }
+
     div[data-testid="stTextInput"] {
         max-width: 450px;
         margin: 0 auto;
@@ -123,6 +117,8 @@ if 'quiz_q' not in st.session_state:
     st.session_state.quiz_q = None
 if 'feedback' not in st.session_state:
     st.session_state.feedback = None
+if 'options' not in st.session_state:
+    st.session_state.options = []
 
 def get_new_question():
     conn = sqlite3.connect(DB_PATH)
@@ -132,13 +128,25 @@ def get_new_question():
     conn.close()
     return row
 
+def load_new_quiz():
+    st.session_state.quiz_q = get_new_question()
+    q = st.session_state.quiz_q
+    if q:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT target FROM vocab WHERE target != ? ORDER BY RANDOM() LIMIT 4", (q[2],))
+        opts = [o[0] for o in cursor.fetchall()] + [q[2]]
+        random.shuffle(opts)
+        st.session_state.options = opts
+        conn.close()
+
 # --- LOGIN ---
 if not st.session_state.logged_in:
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.write("### Anmeldung")
         pw = st.text_input("Passwort", type="password")
-        if st.button("Einloggen"):
+        if st.button("Einloggen", key="login_btn"):
             if pw == "Vallader2026":
                 st.session_state.logged_in = True
                 st.rerun()
@@ -146,7 +154,7 @@ else:
     t_schreiben, t_auswahl, t_datenbank = st.tabs(["Schreiben", "Auswahl", "Datenbank"])
 
     if st.session_state.quiz_q is None:
-        st.session_state.quiz_q = get_new_question()
+        load_new_quiz()
 
     # --- SCHREIBEN ---
     with t_schreiben:
@@ -157,7 +165,7 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen...").strip()
+            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Schreiben & Enter...").strip()
             if user_ans:
                 is_corr = user_ans.lower() == q[2].lower().strip()
                 new_lvl = q[3] + 1 if is_corr else 1
@@ -166,33 +174,30 @@ else:
                 conn.commit()
                 conn.close()
                 st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}") if is_corr else ("error", f"Falsch! ❌ Richtig: {q[2]}")
-                st.session_state.quiz_q = get_new_question()
+                load_new_quiz()
                 st.rerun()
 
-    # --- AUSWAHL (Mit 5 Optionen) ---
+    # --- AUSWAHL (Buttons untereinander) ---
     with t_auswahl:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            # Holt 4 falsche Optionen (insgesamt 5)
-            cursor.execute("SELECT target FROM vocab WHERE target != ? ORDER BY RANDOM() LIMIT 4", (q[2],))
-            opts = [o[0] for o in cursor.fetchall()] + [q[2]]
-            random.shuffle(opts)
-            conn.close()
             
-            c1, c2, c3 = st.columns([1, 1, 1])
-            with c2:
-                ans = st.radio("Optionen", opts, label_visibility="collapsed")
-                if st.button("Prüfen"):
-                    is_corr = (ans == q[2])
+            if st.session_state.feedback:
+                if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
+                else: st.error(st.session_state.feedback[1])
+
+            # Buttons für Optionen zentriert untereinander
+            for opt in st.session_state.options:
+                if st.button(opt, key=f"btn_{opt}"):
+                    is_corr = (opt == q[2])
                     new_lvl = q[3] + 1 if is_corr else 1
                     conn = sqlite3.connect(DB_PATH)
                     conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
                     conn.commit()
                     conn.close()
-                    st.session_state.quiz_q = get_new_question()
+                    st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
+                    load_new_quiz()
                     st.rerun()
 
     # --- DATENBANK ---
