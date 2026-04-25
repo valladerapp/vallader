@@ -21,7 +21,7 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# CSS für das symmetrische Design
+# CSS für exakte Zentrierung und identische Breiten
 st.markdown("""
     <style>
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
@@ -59,7 +59,7 @@ st.markdown("""
         font-size: 18px;
         font-weight: 600;
         padding: 12px 0 !important;
-        width: 160px; /* Feste Breite für die oberen Tabs */
+        width: 160px;
         justify-content: center;
         border-radius: 12px !important;
         border: 1px solid transparent !important;
@@ -85,11 +85,15 @@ st.markdown("""
         color: #1a1a1a;
     }
     
-    /* Einheitliche Breite für Auswahl-Buttons (entspricht ca. 3 Tabs + Gaps) */
-    .stButton > button {
+    /* Auswahl-Buttons & Input Feld: Identische Breite und Zentrierung */
+    .stButton > button, div[data-testid="stTextInput"] {
         width: 100% !important;
-        max-width: 520px; /* Exakt abgestimmt auf die Menübreite */
-        margin: 0 auto 10px auto !important;
+        max-width: 450px !important; /* Exakt die gleiche Breite für alles */
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    .stButton > button {
         display: block;
         background-color: white !important;
         color: black !important;
@@ -97,6 +101,7 @@ st.markdown("""
         border: 1px solid #ccc !important;
         font-size: 18px;
         padding: 12px;
+        margin-bottom: 10px !important;
         transition: all 0.2s;
     }
     
@@ -105,10 +110,11 @@ st.markdown("""
         background-color: #f9f9f9 !important;
     }
 
-    /* Input Feld zentrieren & gleiche Breite */
-    div[data-testid="stTextInput"] {
-        max-width: 520px;
-        margin: 0 auto;
+    /* Entfernt Standard-Zentrierung von Streamlit Columns für die Buttons */
+    [data-testid="column"] {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     </style>
     
@@ -166,7 +172,7 @@ else:
     if st.session_state.quiz_q is None:
         load_new_quiz_data()
 
-    # --- SCHREIBEN ---
+    # --- MODUS: SCHREIBEN ---
     with t_schreiben:
         q = st.session_state.quiz_q
         if q:
@@ -188,7 +194,7 @@ else:
                 load_new_quiz_data()
                 st.rerun()
 
-    # --- AUSWAHL ---
+    # --- MODUS: AUSWAHL ---
     with t_auswahl:
         q = st.session_state.quiz_q
         if q:
@@ -198,22 +204,20 @@ else:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            # Buttons zentriert untereinander mit fester Breite
-            c1, c2, c3 = st.columns([0.5, 1, 0.5]) # Sorgt für die mittige Platzierung der Button-Spalte
-            with c2:
-                for opt in st.session_state.options:
-                    if st.button(opt, key=f"sel_{opt}"):
-                        is_corr = (opt == q[2])
-                        new_lvl = q[3] + 1 if is_corr else 1
-                        conn = sqlite3.connect(DB_PATH)
-                        conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
-                        conn.commit()
-                        conn.close()
-                        st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
-                        load_new_quiz_data()
-                        st.rerun()
+            # Buttons zentriert untereinander
+            for opt in st.session_state.options:
+                if st.button(opt, key=f"sel_{opt}"):
+                    is_corr = (opt == q[2])
+                    new_lvl = q[3] + 1 if is_corr else 1
+                    conn = sqlite3.connect(DB_PATH)
+                    conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
+                    conn.commit()
+                    conn.close()
+                    st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
+                    load_new_quiz_data()
+                    st.rerun()
 
-    # --- DATENBANK ---
+    # --- TAB: DATENBANK ---
     with t_datenbank:
         st.subheader("Vokabel-Datenbank")
         with st.expander("Neues Wort hinzufügen"):
