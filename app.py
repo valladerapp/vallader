@@ -21,7 +21,7 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# Modernes CSS für Layout & Farben
+# CSS für das ultra-cleane Design
 st.markdown("""
     <style>
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
@@ -38,51 +38,64 @@ st.markdown("""
         padding: 15px 0 5px 0;
         text-align: center;
         margin-top: -60px;
-        margin-bottom: 60px; /* Grösserer Abstand nach unten zu den Buttons */
+        margin-bottom: 70px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    .full-header h1 { color: black; margin: 0; font-weight: 700; font-size: 45px; line-height: 1.0; }
-    .subtitle { color: rgba(0,0,0,0.4); font-size: 9px; margin-top: 2px; margin-bottom: 5px; }
+    .full-header h1 { color: black; margin: 0; font-weight: 700; font-size: 45px; line-height: 0.9; }
+    .subtitle { color: rgba(0,0,0,0.4); font-size: 9px; margin-top: 0px; padding-top: 0px; }
     
-    /* Navigation Tabs Design */
+    /* Navigation Tabs Styling */
     .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center; 
-        gap: 20px;
+        gap: 25px;
+        border-bottom: none !important; /* Entfernt den grauen Hauptstrich */
     }
     
-    /* Standard Tab Styling */
+    /* Entfernt ALLE Unterstreichungen und Linien unter den Tabs */
+    .stTabs [data-baseweb="tab-border"], 
+    .stTabs [data-baseweb="tab-highlight-highlight"] {
+        display: none !important;
+        height: 0 !important;
+    }
+
     .stTabs [data-baseweb="tab"] {
         font-size: 18px;
         font-weight: 600;
-        padding: 10px 40px;
-        border-radius: 12px;
-        border: none;
-        color: #1a1a1a;
+        padding: 12px 45px !important;
+        border-radius: 12px !important;
+        border: 1px solid transparent !important; /* Platzhalter für Rahmen */
+        color: #1a1a1a !important;
+        margin-bottom: 10px;
     }
 
-    /* Hellblaue Buttons für Schreiben und Auswahl (erste zwei Tabs) */
+    /* Schreiben & Auswahl: Schöneres, helleres Blau */
     .stTabs [data-baseweb="tab"]:nth-child(1),
     .stTabs [data-baseweb="tab"]:nth-child(2) {
-        background-color: #ADD8E6 !important; /* Hellblau */
+        background-color: #87CEEB !important; /* SkyBlue */
     }
     
-    /* Datenbank Tab ganz rechts aussen & Hellgrau */
+    /* Datenbank: Hellgrau und rechts */
     .stTabs [data-baseweb="tab"]:nth-child(3) {
-        background-color: #f0f2f6 !important; /* Hellgrau */
-        margin-left: auto; /* Schiebt diesen Button nach rechts */
+        background-color: #f0f2f6 !important;
+        margin-left: auto;
     }
 
-    /* Quiz Wort Fokus (Kleiner als Header, aber gross) */
+    /* AKTIVER BUTTON: Feiner schwarzer Rahmen */
+    .stTabs [aria-selected="true"] {
+        border: 1px solid black !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Quiz Wort */
     .quiz-word {
-        font-size: 35px;
+        font-size: 38px;
         font-weight: 700;
         text-align: center;
         margin: 40px 0;
         color: #1a1a1a;
     }
     
-    /* Zentrierung des Inputs */
     div[data-testid="stTextInput"] {
         max-width: 450px;
         margin: 0 auto;
@@ -122,27 +135,21 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.rerun()
 else:
-    # Navigation
     t_schreiben, t_auswahl, t_datenbank = st.tabs(["Schreiben", "Auswahl", "Datenbank"])
 
     if st.session_state.quiz_q is None:
         st.session_state.quiz_q = get_new_question()
 
-    # --- MODUS: SCHREIBEN ---
+    # --- SCHREIBEN ---
     with t_schreiben:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
-            
-            # Feedbackanzeige
             if st.session_state.feedback:
-                if st.session_state.feedback[0] == "ok":
-                    st.success(st.session_state.feedback[1])
-                else:
-                    st.error(st.session_state.feedback[1])
+                if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
+                else: st.error(st.session_state.feedback[1])
 
-            # Input (Bestätigung durch Enter)
-            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Schreiben & Enter...").strip()
+            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen & Enter...").strip()
             
             if user_ans:
                 is_corr = user_ans.lower() == q[2].lower().strip()
@@ -151,21 +158,15 @@ else:
                 conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
                 conn.commit()
                 conn.close()
-                
-                if is_corr:
-                    st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}")
-                else:
-                    st.session_state.feedback = ("error", f"Falsch! ❌ Richtig war: {q[2]}")
-                
+                st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}") if is_corr else ("error", f"Falsch! ❌ Richtig: {q[2]}")
                 st.session_state.quiz_q = get_new_question()
                 st.rerun()
 
-    # --- MODUS: AUSWAHL ---
+    # --- AUSWAHL ---
     with t_auswahl:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
-            
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute("SELECT target FROM vocab WHERE target != ? ORDER BY RANDOM() LIMIT 3", (q[2],))
@@ -176,7 +177,7 @@ else:
             c1, c2, c3 = st.columns([1, 1, 1])
             with c2:
                 ans = st.radio("Optionen", opts, label_visibility="collapsed")
-                if st.button("Antwort prüfen"):
+                if st.button("Prüfen"):
                     is_corr = (ans == q[2])
                     new_lvl = q[3] + 1 if is_corr else 1
                     conn = sqlite3.connect(DB_PATH)
@@ -186,13 +187,13 @@ else:
                     st.session_state.quiz_q = get_new_question()
                     st.rerun()
 
-    # --- TAB: DATENBANK ---
+    # --- DATENBANK ---
     with t_datenbank:
         st.subheader("Vokabel-Datenbank")
         with st.expander("Neues Wort hinzufügen"):
             c1, c2 = st.columns(2)
-            with c1: de_n = st.text_input("Deutsch (DE)", key="add_de")
-            with c2: val_n = st.text_input("Vallader (VAL)", key="add_val")
+            with c1: de_n = st.text_input("DE", key="add_de")
+            with c2: val_n = st.text_input("VAL", key="add_val")
             if st.button("Hinzufügen"):
                 if de_n and val_n:
                     conn = sqlite3.connect(DB_PATH)
