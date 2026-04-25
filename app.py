@@ -4,7 +4,7 @@ import random
 import os
 import pandas as pd
 
-# Pfad zur Datenbank (lokal im selben Ordner)
+# Pfad zur Datenbank
 DB_PATH = "languages.db"
 
 def init_db():
@@ -16,7 +16,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Initialisierung der Datenbank beim Start
+# Initialisierung
 init_db()
 
 # --- STREAMLIT SETUP ---
@@ -25,10 +25,7 @@ st.set_page_config(page_title="Vallader", layout="centered")
 # Design & CSS
 st.markdown("""
     <style>
-    /* Hintergrund der gesamten App */
     .stApp { background-color: #40E0D0; }
-    
-    /* Violetter Header */
     .header { 
         background-color: #E0B0FF; 
         padding: 25px; 
@@ -38,82 +35,37 @@ st.markdown("""
         box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
     }
     .header h1 { color: black; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* Footer Styling */
     .footer { text-align: center; color: #555; font-size: 12px; margin-top: 50px; padding: 20px; }
-    
-    /* Buttons einheitlich machen */
     .stButton>button { width: 100%; border-radius: 8px; }
     </style>
-    
     <div class="header"><h1>Vallader</h1></div>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE (Zustand der App merken) ---
+# Session State Initialisierung
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'quiz_q' not in st.session_state:
     st.session_state.quiz_q = None
 
-# --- LOGIN BEREICH ---
+# --- LOGIN ---
 if not st.session_state.logged_in:
     st.write("### Willkommen - bitte anmelden")
-    with st.container():
-        pw = st.text_input("Passwort", type="password")
-        if st.button("Einloggen"):
-            if pw == "Vallader2026":
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("Falsches Passwort")
-
-# --- HAUPTBEREICH (Eingeloggt) ---
-else:
-    # Navigation über Tabs
-    tab1, tab2, tab3 = st.tabs(["📝 Lernen (Tippen)", "🔘 Lernen (Auswahl)", "🗄️ Datenbank"])
-
-    # --- DATENBANK TAB ---
-    with tab3:
-        st.subheader("Vokabeln verwalten")
-        
-        # Eingabeformular
-        with st.expander("Neue Vokabel hinzufügen", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1: de = st.text_input("Deutsch", key="de_add")
-            with col2: val = st.text_input("Vallader", key="val_add")
-            
-            if st.button("In Datenbank speichern"):
-                if de and val:
-                    conn = sqlite3.connect(DB_PATH)
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO vocab (language, german, target, level) VALUES (?,?,?,?)", 
-                                   ("Vallader", de, val, 1))
-                    conn.commit()
-                    conn.close()
-                    st.success(f"'{val}' wurde hinzugefügt!")
-                    st.rerun()
-
-        st.divider()
-        
-        # Suche und Tabelle
-        search = st.text_input("Suchen in der Datenbank...", placeholder="Wort eingeben...")
-        conn = sqlite3.connect(DB_PATH)
-        query = "SELECT id, german, target, level FROM vocab"
-        if search:
-            query += f" WHERE german LIKE '%{search}%' OR target LIKE '%{search}%'"
-        
-        df = pd.read_sql_query(query + " ORDER BY id DESC", conn)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        
-        if st.button("Liste aktualisieren"):
+    pw = st.text_input("Passwort", type="password")
+    if st.button("Einloggen"):
+        if pw == "Vallader2026":
+            st.session_state.logged_in = True
             st.rerun()
-        conn.close()
+        else:
+            st.error("Falsches Passwort")
+
+# --- HAUPTBEREICH ---
+else:
+    tab1, tab2, tab3 = st.tabs(["📝 Lernen (Tippen)", "🔘 Lernen (Auswahl)", "🗄️ Datenbank"])
 
     # --- QUIZ FUNKTIONEN ---
     def get_new_question():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        # Gewichtung nach Level: Niedrigere Level kommen öfter vor
         cursor.execute("SELECT id, german, target, level FROM vocab ORDER BY (level * RANDOM()) LIMIT 1")
         row = cursor.fetchone()
         conn.close()
@@ -134,39 +86,88 @@ else:
                 st.session_state.quiz_q = get_new_question()
             
             q = st.session_state.quiz_q
-            
             if q:
-                st.write(f"### Was heißt: **{q[1]}**?") # Deutsche Frage
-                
+                st.write(f"### Was heißt: **{q[1]}**?")
                 if mode == "tippen":
-                    user_ans = st.text_input("Antwort hier tippen:", key=f"input_{mode}", placeholder="..." ).strip()
-                    if st.button("Prüfen", key=f"check_{mode}"):
+                    user_ans = st.text_input("Antwort:", key=f"in_{mode}").strip()
+                    if st.button("Prüfen", key=f"btn_{mode}"):
                         if user_ans.lower() == q[2].lower().strip():
                             st.success(f"Richtig! ✅ ({q[2]})")
                             update_level(q[0], q[3], True)
                         else:
-                            st.error(f"Leider falsch. ❌ Richtig wäre: {q[2]}")
+                            st.error(f"Falsch. ❌ Richtig wäre: {q[2]}")
                             update_level(q[0], q[3], False)
-                
-                else: # Auswahl-Modus (Multiple Choice)
+                else:
                     conn = sqlite3.connect(DB_PATH)
                     cursor = conn.cursor()
-                    # 3 falsche Antworten holen
                     cursor.execute("SELECT target FROM vocab WHERE target != ? ORDER BY RANDOM() LIMIT 3", (q[2],))
-                    options = [o[0] for o in cursor.fetchall()] + [q[2]]
-                    random.shuffle(options)
+                    opts = [o[0] for o in cursor.fetchall()] + [q[2]]
+                    random.shuffle(opts)
                     conn.close()
-                    
-                    user_choice = st.radio("Wähle die richtige Übersetzung:", options, key=f"radio_{mode}")
-                    if st.button("Antwort einloggen", key=f"check_{mode}"):
-                        if user_choice == q[2]:
-                            st.success(f"Richtig! ✅")
+                    ans = st.radio("Wähle:", opts, key=f"rad_{mode}")
+                    if st.button("Antworten", key=f"btn_{mode}"):
+                        if ans == q[2]:
+                            st.success("Richtig! ✅")
                             update_level(q[0], q[3], True)
                         else:
                             st.error(f"Falsch. ❌ Richtig wäre: {q[2]}")
                             update_level(q[0], q[3], False)
             else:
-                st.info("Die Datenbank ist noch leer. Füge zuerst Vokabeln im Tab 'Datenbank' hinzu!")
+                st.info("Datenbank leer.")
 
-# --- FOOTER ---
+    # --- DATENBANK TAB (EDITIEREN & LÖSCHEN) ---
+    with tab3:
+        # 1. Hinzufügen
+        with st.expander("➕ Neue Vokabel hinzufügen"):
+            c1, c2 = st.columns(2)
+            with c1: de_n = st.text_input("Deutsch", key="add_de")
+            with c2: val_n = st.text_input("Vallader", key="add_val")
+            if st.button("Speichern"):
+                if de_n and val_n:
+                    conn = sqlite3.connect(DB_PATH)
+                    conn.execute("INSERT INTO vocab (language, german, target, level) VALUES (?,?,?,?)", ("Vallader", de_n, val_n, 1))
+                    conn.commit()
+                    conn.close()
+                    st.rerun()
+
+        # 2. Editieren / Löschen
+        conn = sqlite3.connect(DB_PATH)
+        df_all = pd.read_sql_query("SELECT id, german, target, level FROM vocab ORDER BY target ASC", conn)
+        conn.close()
+
+        if not df_all.empty:
+            with st.expander("✏️ Wort bearbeiten oder löschen", expanded=True):
+                v_list = {f"{r['target']} ({r['german']})": r['id'] for _, r in df_all.iterrows()}
+                sel = st.selectbox("Wort auswählen:", v_list.keys())
+                sel_id = v_list[sel]
+                curr = df_all[df_all['id'] == sel_id].iloc[0]
+                
+                ce1, ce2 = st.columns(2)
+                with ce1: new_de = st.text_input("Deutsch:", value=curr['german'], key="e_de")
+                with ce2: new_val = st.text_input("Vallader:", value=curr['target'], key="e_val")
+                
+                be1, be2 = st.columns(2)
+                with be1:
+                    if st.button("Änderung speichern"):
+                        conn = sqlite3.connect(DB_PATH)
+                        conn.execute("UPDATE vocab SET german=?, target=? WHERE id=?", (new_de, new_val, sel_id))
+                        conn.commit()
+                        conn.close()
+                        st.rerun()
+                with be2:
+                    if st.button("🗑️ Löschen"):
+                        conn = sqlite3.connect(DB_PATH)
+                        conn.execute("DELETE FROM vocab WHERE id=?", (sel_id,))
+                        conn.commit()
+                        conn.close()
+                        st.rerun()
+
+        # 3. Ansicht
+        st.divider()
+        search = st.text_input("Suchen...")
+        conn = sqlite3.connect(DB_PATH)
+        df_view = pd.read_sql_query(f"SELECT german, target, level FROM vocab WHERE german LIKE '%{search}%' OR target LIKE '%{search}%' ORDER BY id DESC", conn)
+        st.dataframe(df_view, use_container_width=True, hide_index=True)
+        conn.close()
+
 st.markdown('<div class="footer">designed and powered by akeora gmbh</div>', unsafe_allow_html=True)
