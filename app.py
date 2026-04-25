@@ -21,7 +21,7 @@ init_db()
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="Vallader", layout="wide")
 
-# CSS für exakte Zentrierung und identische Breiten
+# CSS für exakte Zentrierung, identische Breiten und zentrierten Text
 st.markdown("""
     <style>
     .stApp { background-color: #40E0D0; font-family: 'Inter', sans-serif; }
@@ -67,7 +67,6 @@ st.markdown("""
         background-color: #f0f2f6 !important;
     }
 
-    /* AKTIVER TAB: Schwarzer Rahmen */
     .stTabs [aria-selected="true"] {
         border: 1px solid black !important;
     }
@@ -85,36 +84,48 @@ st.markdown("""
         color: #1a1a1a;
     }
     
-    /* Auswahl-Buttons & Input Feld: Identische Breite und Zentrierung */
-    .stButton > button, div[data-testid="stTextInput"] {
-        width: 100% !important;
-        max-width: 450px !important; /* Exakt die gleiche Breite für alles */
-        margin-left: auto !important;
-        margin-right: auto !important;
+    /* DIE FIXES: Buttons & Input exakt gleich breit (450px) */
+    /* Wir zentrieren den Container und erzwingen die Breite */
+    .centered-container {
+        max-width: 450px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
+    /* Input Feld Styling */
+    div[data-testid="stTextInput"] {
+        width: 450px !important;
+        margin: 0 auto !important;
+    }
+
+    /* Button Styling */
     .stButton > button {
-        display: block;
+        width: 450px !important; /* Exakt wie Input */
         background-color: white !important;
         color: black !important;
         border-radius: 10px;
         border: 1px solid #ccc !important;
         font-size: 18px;
         padding: 12px;
-        margin-bottom: 10px !important;
-        transition: all 0.2s;
+        margin: 5px auto !important;
+        display: flex !important;
+        justify-content: center !important; /* Text horizontal zentrieren */
+        align-items: center !important;
+        text-align: center !important;
     }
     
     .stButton > button:hover {
         border: 1px solid black !important;
         background-color: #f9f9f9 !important;
     }
-
-    /* Entfernt Standard-Zentrierung von Streamlit Columns für die Buttons */
-    [data-testid="column"] {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+    
+    /* Verstecke Label für Auswahl Buttons falls nötig */
+    .stButton p {
+        margin: 0 !important;
+        text-align: center !important;
+        width: 100%;
     }
     </style>
     
@@ -172,52 +183,51 @@ else:
     if st.session_state.quiz_q is None:
         load_new_quiz_data()
 
-    # --- MODUS: SCHREIBEN ---
+    # --- SCHREIBEN ---
     with t_schreiben:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
-            
             if st.session_state.feedback:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            user_ans = st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen & Enter...").strip()
-            if user_ans:
+            st.text_input("Antwort", key="input_schreiben", label_visibility="collapsed", placeholder="Tippen & Enter...")
+            
+            # Logik beim Absenden (Streamlit erkennt Enter automatisch bei text_input)
+            if st.session_state.input_schreiben:
+                user_ans = st.session_state.input_schreiben.strip()
                 is_corr = user_ans.lower() == q[2].lower().strip()
-                new_lvl = q[3] + 1 if is_corr else 1
                 conn = sqlite3.connect(DB_PATH)
-                conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
+                conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, q[3]+1 if is_corr else 1), q[0]))
                 conn.commit()
                 conn.close()
                 st.session_state.feedback = ("ok", f"Richtig! ✅ {q[2]}") if is_corr else ("error", f"Falsch! ❌ Richtig: {q[2]}")
                 load_new_quiz_data()
                 st.rerun()
 
-    # --- MODUS: AUSWAHL ---
+    # --- AUSWAHL ---
     with t_auswahl:
         q = st.session_state.quiz_q
         if q:
             st.markdown(f'<div class="quiz-word">{q[1]}</div>', unsafe_allow_html=True)
-            
             if st.session_state.feedback:
                 if st.session_state.feedback[0] == "ok": st.success(st.session_state.feedback[1])
                 else: st.error(st.session_state.feedback[1])
 
-            # Buttons zentriert untereinander
+            # Buttons untereinander rendern
             for opt in st.session_state.options:
                 if st.button(opt, key=f"sel_{opt}"):
                     is_corr = (opt == q[2])
-                    new_lvl = q[3] + 1 if is_corr else 1
                     conn = sqlite3.connect(DB_PATH)
-                    conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, new_lvl), q[0]))
+                    conn.execute("UPDATE vocab SET level = ? WHERE id = ?", (max(1, q[3]+1 if is_corr else 1), q[0]))
                     conn.commit()
                     conn.close()
                     st.session_state.feedback = ("ok", "Richtig! ✅") if is_corr else ("error", f"Falsch! ❌ Richtig war: {q[2]}")
                     load_new_quiz_data()
                     st.rerun()
 
-    # --- TAB: DATENBANK ---
+    # --- DATENBANK ---
     with t_datenbank:
         st.subheader("Vokabel-Datenbank")
         with st.expander("Neues Wort hinzufügen"):
@@ -231,13 +241,12 @@ else:
                     conn.commit()
                     conn.close()
                     st.rerun()
-
+        
         conn = sqlite3.connect(DB_PATH)
         df = pd.read_sql_query("SELECT id, german, target, level FROM vocab ORDER BY id DESC", conn)
         conn.close()
-        
         edited_df = st.data_editor(df, column_config={"id": None}, num_rows="dynamic", use_container_width=True)
-        if st.button("Alle Änderungen speichern"):
+        if st.button("Änderungen speichern"):
             conn = sqlite3.connect(DB_PATH)
             conn.execute("DELETE FROM vocab")
             for _, r in edited_df.iterrows():
